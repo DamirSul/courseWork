@@ -38,8 +38,7 @@ class StudentModelAdapter(ModelAdapter):
         ]
 
         item_field_names = {
-            get_field_key(_type, field): name
-            for name, _type, field in item_fields
+            get_field_key(_type, field): name for name, _type, field in item_fields
         }
 
         assert len(item_field_names) == len(item_fields), (
