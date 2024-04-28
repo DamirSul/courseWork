@@ -3,6 +3,7 @@ from django.contrib.auth import get_user_model
 
 from pages.models import PublishedModel
 
+
 User = get_user_model()
 
 
@@ -52,14 +53,14 @@ class Post(PublishedModel):
         Location,
         on_delete=models.SET_NULL,
         null=True,
-        blank=True,
+        blank=False,
         verbose_name="Местоположение",
     )
     category = models.ForeignKey(
         Category,
         on_delete=models.SET_NULL,
         null=True,
-        blank=True,
+        blank=False,
         verbose_name="Категория",
     )
 
@@ -83,7 +84,11 @@ class Profile(PublishedModel):
 
 class Comment(models.Model):
     text = models.TextField("Впишите текст тут")
-    post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name="comments")
+    post = models.ForeignKey(
+        Post,
+        on_delete=models.CASCADE,
+        related_name="comments"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     author = models.ForeignKey(User, on_delete=models.CASCADE)
 
