@@ -1,4 +1,4 @@
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, render, redirect
 from django.views.generic import (
     CreateView,
     DeleteView,
@@ -6,22 +6,20 @@ from django.views.generic import (
     ListView,
     UpdateView,
 )
-from django.http import HttpResponseRedirect
+from django.http import HttpResponseRedirect, Http404, HttpResponse
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserChangeForm
 from django.db.models import Count
 from django.urls import reverse_lazy
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponse
-from django.contrib.auth.mixins import LoginRequiredMixin
-from django.contrib.auth.mixins import UserPassesTestMixin
-from django.shortcuts import get_object_or_404, redirect
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.core.paginator import Paginator
-from django.http import Http404
 from django.utils import timezone
 
-from blog.models import Post, Category, Comment
+from .models import Post, Category, Comment
 from .forms import PostForm, CommentForm
+
+INDEX_PAGINATE = 10
 
 
 class OnlyAuthorMixin(UserPassesTestMixin):
@@ -48,31 +46,28 @@ def simple_view(request):
     return HttpResponse("Страница для залогиненных пользователей!")
 
 
+def get_filtered_posts(posts):
+    return posts.filter(
+        is_published=True,
+        category__is_published=True,
+        pub_date__lte=timezone.now()
+    ).order_by("-pub_date").annotate(comment_count=Count("comments"))
+
+
 class IndexView(ListView):
     template_name = "blog/index.html"
     model = Post
     context_object_name = "page_obj"
-    paginate_by = 10
+    paginate_by = INDEX_PAGINATE
 
     def get_queryset(self):
-        # Получаем текущее время
-        current_time = timezone.now()
-        # Фильтруем посты по условиям
-        posts = (
-            super()
-            .get_queryset()
-            .filter(is_published=True, category__is_published=True)
-            .filter(pub_date__lte=current_time)
-            .order_by("-pub_date")
-            .annotate(comment_count=Count("comments"))
-        )
-        return posts
+        return get_filtered_posts(super().get_queryset())
 
 
 class CategoryPostsView(ListView):
     template_name = "blog/category.html"
     context_object_name = "page_obj"
-    paginate_by = 10
+    paginate_by = INDEX_PAGINATE
 
     def get_queryset(self):
         category_slug = self.kwargs.get("category_slug")
@@ -81,38 +76,21 @@ class CategoryPostsView(ListView):
             slug=category_slug,
             is_published=True
         )
-
-        # Получаем текущее время
-        current_time = timezone.now()
-
-        # Фильтруем посты по условиям
-        posts = (
-            get_posts_qs()
-            .filter(category=category,
-                    is_published=True,
-                    pub_date__lte=current_time
-                    )
-            .order_by("-pub_date")
-            .annotate(comment_count=Count("comments"))
+        posts = get_filtered_posts(
+            Post.objects.filter(category=category)
         )
         return posts
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         category_slug = self.kwargs.get("category_slug")
-        category = get_object_or_404(Category,
-                                     slug=category_slug,
-                                     is_published=True
-                                     )
+        category = get_object_or_404(
+            Category,
+            slug=category_slug,
+            is_published=True
+        )
         context["category"] = category
         return context
-
-
-def get_posts_qs():
-    return Post.objects.filter(
-        is_published=True,
-        category__is_published=True,
-    )
 
 
 def user_profile(request, username):
@@ -134,7 +112,14 @@ class PostCreateView(LoginRequiredMixin, CreateView):
     template_name = "blog/create.html"
     model = Post
     forms_class = PostForm
-    fields = ("title", "text", "pub_date", "image", "location", "category")
+    fields = (
+        "title",
+        "text",
+        "pub_date",
+        "image",
+        "location",
+        "category"
+    )
 
     def form_valid(self, form):
         form.instance.author = self.request.user
@@ -153,17 +138,11 @@ class PostUpdateView(OnlyAuthorMixin, LoginRequiredMixin, UpdateView):
 
     def handle_no_permission(self):
         return HttpResponseRedirect(
-            reverse_lazy(
-                "blog:post_detail",
-                kwargs={"pk": self.kwargs["pk"]}
-            )
+            reverse_lazy("blog:post_detail", kwargs={"pk": self.kwargs["pk"]})
         )
 
     def get_success_url(self):
-        return reverse_lazy(
-            "blog:post_detail",
-            kwargs={"pk": self.object.pk}
-        )
+        return reverse_lazy("blog:post_detail", kwargs={"pk": self.object.pk})
 
 
 class PostDeleteView(OnlyAuthorMixin, LoginRequiredMixin, DeleteView):
@@ -186,11 +165,7 @@ class PostDeleteView(OnlyAuthorMixin, LoginRequiredMixin, DeleteView):
         )
 
 
-class PostDeleteCommentView(
-    OnlyAuthorMixin,
-    LoginRequiredMixin,
-    DeleteView
-):
+class PostDeleteCommentView(OnlyAuthorMixin, LoginRequiredMixin, DeleteView):
     template_name = "blog/comment.html"
     model = Comment
     form_class = CommentForm
@@ -241,10 +216,7 @@ class PostDetailView(DetailView):
 @login_required
 def edit_profile(request):
     if request.method == "POST":
-        form = CustomUserChangeForm(
-            request.POST,
-            instance=request.user,
-        )
+        form = CustomUserChangeForm(request.POST, instance=request.user)
         if form.is_valid():
             form.save()
             profile_url = reverse_lazy(
