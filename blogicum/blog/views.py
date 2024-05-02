@@ -48,9 +48,6 @@ def simple_view(request):
 
 def get_filtered_posts(posts):
     return posts.filter(
-        is_published=True,
-        category__is_published=True,
-        pub_date__lte=timezone.now()
     ).order_by("-pub_date").annotate(comment_count=Count("comments"))
 
 
@@ -61,7 +58,11 @@ class IndexView(ListView):
     paginate_by = INDEX_PAGINATE
 
     def get_queryset(self):
-        return get_filtered_posts(super().get_queryset())
+        return get_filtered_posts(super().get_queryset()).filter(
+            is_published=True,
+            category__is_published=True,
+            pub_date__lte=timezone.now()
+        )
 
 
 class CategoryPostsView(ListView):
@@ -77,7 +78,12 @@ class CategoryPostsView(ListView):
             is_published=True
         )
         posts = get_filtered_posts(
-            Post.objects.filter(category=category)
+            Post.objects.filter(
+                category=category,
+                is_published=True,
+                category__is_published=True,
+                pub_date__lte=timezone.now()
+            )
         )
         return posts
 
@@ -96,12 +102,12 @@ class CategoryPostsView(ListView):
 def user_profile(request, username):
     template_name = "blog/profile.html"
     profile = get_object_or_404(User, username=username)
-    posts = (
+
+    posts = get_filtered_posts(
         Post.objects.filter(author=profile)
-        .order_by("-pub_date")
-        .annotate(comment_count=Count("comments"))
     )
-    paginator = Paginator(posts, 10)
+
+    paginator = Paginator(posts, INDEX_PAGINATE)
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
     context = {"profile": profile, "page_obj": page_obj}
