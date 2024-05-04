@@ -21,6 +21,12 @@ from .forms import PostForm, CommentForm
 
 INDEX_PAGINATE = 10
 
+DEFAULT_FILTERS = {
+    'is_published': True,
+    'category__is_published': True,
+    'pub_date__lte': timezone.now()
+}
+
 
 class OnlyAuthorMixin(UserPassesTestMixin):
     def test_func(self):
@@ -60,9 +66,7 @@ class IndexView(ListView):
 
     def get_queryset(self):
         return get_filtered_posts(super().get_queryset()).filter(
-            is_published=True,
-            category__is_published=True,
-            pub_date__lte=timezone.now()
+            **DEFAULT_FILTERS
         )
 
 
@@ -81,9 +85,7 @@ class CategoryPostsView(ListView):
         posts = get_filtered_posts(
             Post.objects.filter(
                 category=category,
-                is_published=True,
-                category__is_published=True,
-                pub_date__lte=timezone.now()
+                **DEFAULT_FILTERS
             )
         )
         return posts
