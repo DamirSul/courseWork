@@ -46,9 +46,10 @@ def simple_view(request):
     return HttpResponse("Страница для залогиненных пользователей!")
 
 
-def get_filtered_posts(posts):
-    return posts.filter(
-    ).order_by("-pub_date").annotate(comment_count=Count("comments"))
+def get_filtered_posts(posts, **kwargs):
+    return posts.filter(**kwargs).order_by("-pub_date").annotate(
+        comment_count=Count("comments")
+    )
 
 
 class IndexView(ListView):
@@ -151,6 +152,7 @@ class PostUpdateView(OnlyAuthorMixin, LoginRequiredMixin, UpdateView):
         return reverse_lazy("blog:post_detail", kwargs={"pk": self.object.pk})
 
 
+
 class PostDeleteView(OnlyAuthorMixin, LoginRequiredMixin, DeleteView):
     template_name = "blog/create.html"
     model = Post
@@ -171,11 +173,7 @@ class PostDeleteView(OnlyAuthorMixin, LoginRequiredMixin, DeleteView):
         )
 
 
-class PostDeleteCommentView(OnlyAuthorMixin, LoginRequiredMixin, DeleteView):
-    template_name = "blog/comment.html"
-    model = Comment
-    form_class = CommentForm
-
+class GetSuccessUrlMixin():
     def get_success_url(self):
         return reverse_lazy(
             "blog:post_detail",
@@ -183,16 +181,16 @@ class PostDeleteCommentView(OnlyAuthorMixin, LoginRequiredMixin, DeleteView):
         )
 
 
-class PostEditCommentView(OnlyAuthorMixin, LoginRequiredMixin, UpdateView):
+class PostDeleteCommentView(OnlyAuthorMixin, GetSuccessUrlMixin, LoginRequiredMixin, DeleteView):
     template_name = "blog/comment.html"
     model = Comment
     form_class = CommentForm
 
-    def get_success_url(self):
-        return reverse_lazy(
-            "blog:post_detail",
-            kwargs={"pk": self.object.post.pk}
-        )
+
+class PostEditCommentView(OnlyAuthorMixin, GetSuccessUrlMixin, LoginRequiredMixin, UpdateView):
+    template_name = "blog/comment.html"
+    model = Comment
+    form_class = CommentForm
 
 
 class PostDetailView(DetailView):
