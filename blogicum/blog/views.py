@@ -152,7 +152,6 @@ class PostUpdateView(OnlyAuthorMixin, LoginRequiredMixin, UpdateView):
         return reverse_lazy("blog:post_detail", kwargs={"pk": self.object.pk})
 
 
-
 class PostDeleteView(OnlyAuthorMixin, LoginRequiredMixin, DeleteView):
     template_name = "blog/create.html"
     model = Post
@@ -181,13 +180,23 @@ class GetSuccessUrlMixin():
         )
 
 
-class PostDeleteCommentView(OnlyAuthorMixin, GetSuccessUrlMixin, LoginRequiredMixin, DeleteView):
+class PostDeleteCommentView(
+    OnlyAuthorMixin,
+    GetSuccessUrlMixin,
+    LoginRequiredMixin,
+    DeleteView
+):
     template_name = "blog/comment.html"
     model = Comment
     form_class = CommentForm
 
 
-class PostEditCommentView(OnlyAuthorMixin, GetSuccessUrlMixin, LoginRequiredMixin, UpdateView):
+class PostEditCommentView(
+    OnlyAuthorMixin,
+    GetSuccessUrlMixin,
+    LoginRequiredMixin,
+    UpdateView
+):
     template_name = "blog/comment.html"
     model = Comment
     form_class = CommentForm
